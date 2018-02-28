@@ -1,17 +1,7 @@
-%% -*- mode: Erlang; -*-
-{application, esmpp_lib,
- [
-  {description, "Smpp library"},
-  {vsn, "0.9.6"},
-  {registered, []},
-  {modules, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  crypto,
-                  public_key,
-                  ssl,
-                  lager  
-                 ]},
-  {env, []}
- ]}.
+{application,esmpp_lib,
+             [{description,"Smpp library"},
+              {vsn,"0.9.6"},
+              {registered,[]},
+              {modules,[]},
+              {applications,[kernel,stdlib,crypto,public_key,ssl,lager]},
+              {env,[]}]}.

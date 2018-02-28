@@ -40,8 +40,37 @@ Status:32/integer,                 %% command_status
 SeqNum:32/integer                  %% sequence_number
 >>).
 
+
+-define(DELIVER_SM(Length, SeqNum, ServType, LenT, SAddrTon, SAddrNpi, SAdress, LenS, 
+     DAddrTon, DAddrNpi, DAddr, LenD, ESMClass, RDFlag, DataCoding, LenSms, Text), <<
+%% Mandatory parameters
+Length:32/integer,               %% command_length                  
+5:32/integer,                    %% command_id 
+0:32/integer,                    %% command_status NONE in native packet !!!!!
+SeqNum:32/integer,               %% sequence_number
+ServType:LenT/binary, 0:8/integer,%% service_type                    
+SAddrTon:8/integer,              %% source_addr_ton
+SAddrNpi:8/integer,              %% source_addr_npi
+SAdress:LenS/binary, 0:8/integer,%% source_addr
+DAddrTon:8/integer,              %% dest_addr_ton
+DAddrNpi:8/integer,              %% dest_addr_npi
+DAddr:LenD/binary, 0:8/integer,  %% dest_addr
+ESMClass:8/integer,                     %% esm_class
+0:8/integer,                     %% protocol_id
+0:8/integer,                     %% priority_flag
+0:8/integer,                     %% schedule_delivery_time NOW immediate_delivery TODO !!!
+0:8/integer,                     %% validity_period NOW SMSC default              TODO !!!
+RDFlag:8/integer,                     %% registered_delivery NOW delivery receipt requested TODO !!!
+0:8/integer,                     %% replace_if_present_flag NOW default don't replace
+DataCoding:8/integer,            %% data_coding
+0:8/integer,                     %% sm_default_msg_id NOW unused
+LenSms:8/integer,                %% sm_length
+Text:LenSms/binary               %% short_message 
+>>).
+
+
 -define(SUBMIT_SM(Length, SeqNum, ServType, LenT, SAddrTon, SAddrNpi, SAdress, LenS, 
-     DAddrTon, DAddrNpi, DAddr, LenD, DataCoding, LenSms, Text), <<
+     DAddrTon, DAddrNpi, DAddr, LenD, RDFlag, DataCoding, LenSms, Text), <<
 %% Mandatory parameters
 Length:32/integer,               %% command_length                  
 4:32/integer,                    %% command_id 
@@ -59,7 +88,7 @@ DAddr:LenD/binary, 0:8/integer,  %% dest_addr
 0:8/integer,                     %% priority_flag
 0:8/integer,                     %% schedule_delivery_time NOW immediate_delivery TODO !!!
 0:8/integer,                     %% validity_period NOW SMSC default              TODO !!!
-1:8/integer,                     %% registered_delivery NOW delivery receipt requested TODO !!!
+RDFlag:8/integer,                     %% registered_delivery NOW delivery receipt requested TODO !!!
 0:8/integer,                     %% replace_if_present_flag NOW default don't replace
 DataCoding:8/integer,            %% data_coding
 0:8/integer,                     %% sm_default_msg_id NOW unused

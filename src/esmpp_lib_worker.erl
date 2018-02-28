@@ -46,6 +46,11 @@ start_link(Param) ->
     gen_server:start_link(?MODULE, Param, []).
 
 
+-spec deliver(pid(), list()) -> ok.
+deliver(WorkerPid, List) ->
+    gen_server:cast(WorkerPid, {deliver, List}),
+    ?LOG_INFO("Send msg deliver ~p~n ", [List]).
+
 -spec submit(pid(), list()) -> ok.
 submit(WorkerPid, List) ->
     gen_server:cast(WorkerPid, {submit, List}),
@@ -92,6 +97,10 @@ handle_call(Request, _From, State) ->
     ?LOG_ERROR("Unknown call request ~p~n", [Request]),
     {reply, ok, State}.
 
+handle_cast({deliver, List}, State) ->   
+    SmsList = esmpp_lib_encoder:encode(deliver_sm, State, List),
+    State1 = send_sms(SmsList, State),
+    {noreply, State1}; 
 handle_cast({submit, List}, State) ->   
     SmsList = esmpp_lib_encoder:encode(submit_sm, State, List),
     State1 = send_sms(SmsList, State),

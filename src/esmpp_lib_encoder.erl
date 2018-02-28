@@ -26,6 +26,8 @@ encode(Name, Param, List) ->
             unbind_resp(List);
         generic_nack ->
             generic_nack(List);
+        deliver_sm ->
+            deliver_sm(List, Param);
         submit_sm ->
             submit_sm(List, Param);
         data_sm ->
@@ -78,6 +80,60 @@ generic_nack(List) ->
     SeqNum = proplists:get_value(sequence_number, List),
     ErrCode = proplists:get_value(status, List),
     ?GENERIC_NACK(SeqNum, ErrCode).
+deliver_sm(List, Param) ->
+    Handler = proplists:get_value(handler, Param), 
+    Txt = get_binary(text, List),
+    SeqNum = proplists:get_value(seq_n, Param),
+    Daddr = get_binary(dest_addr, List),
+    Saddr = get_binary(source_addr, List),
+    ESMClass = get_binary(esm_class, List),
+	RDFlag = get_binary(registered_delivery, List),
+    {Encode, MaxLen} = exam_unicode(Txt, Param),
+    Text = get_text_by_code(Encode, Txt),
+    LenTxt = byte_size(Text),
+    case LenTxt > MaxLen of
+        false ->
+            ServType = <<>>, %get_binary(service_type, Param),
+%            ServType = get_binary(service_type, Param),
+            LenType = byte_size(ServType),
+            LenDaddr = byte_size(Daddr),
+            LenSaddr = byte_size(Saddr),
+            SaddrTon = proplists:get_value(source_addr_ton, Param),
+            SaddrNpi = proplists:get_value(source_addr_npi, Param),
+            DaddrTon = proplists:get_value(dest_addr_ton, Param),
+            DaddrNpi = proplists:get_value(dest_addr_npi, Param),
+            ok = Handler:sequence_number_handler([{sequence_number, SeqNum}|List]),
+            Bin = ?DELIVER_SM(1234, SeqNum, ServType, LenType, SaddrTon, SaddrNpi, 
+                        Saddr, LenSaddr, DaddrTon, DaddrNpi, Daddr, LenDaddr,
+                        ESMClass, RDFlag, Encode, LenTxt, Text),
+            Length = byte_size(Bin),
+            Bin1 = ?DELIVER_SM(Length, SeqNum, ServType, LenType, SaddrTon, 
+                    SaddrNpi, Saddr, LenSaddr, DaddrTon, DaddrNpi, Daddr, 
+                    LenDaddr, ESMClass, RDFlag, Encode, LenTxt, Text),
+			BinFin = case ESMClass of
+				4 ->
+					Bin2 = case proplists:get_value(message_state, List) of
+						undefined -> Bin1;
+						St ->
+							add_msg_state(Bin1, St)
+					end,
+					case get_binary(receipted_message_id, List) of
+						undefined -> Bin2;
+						Id ->
+							add_rmsg_id(Bin2, Id)
+					end;
+				_ -> Bin1
+			end,
+			io:format("FinalBin: ~p~n", [BinFin]),
+			CorrectBin = correct_len(BinFin),
+			io:format("CorrectBin: ~p~n", [CorrectBin]),
+            [CorrectBin];
+        true ->
+            Tuple = cut_txt(Text, 1, MaxLen, []),
+            SarRefNum = sar_ref_num(Param),
+            assemble_submit(Tuple, SarRefNum, List, Param, Encode, [])
+    end.        
+
 
 submit_sm(List, Param) ->
     Handler = proplists:get_value(handler, Param), 
@@ -85,6 +141,7 @@ submit_sm(List, Param) ->
     SeqNum = proplists:get_value(seq_n, Param),
     Daddr = get_binary(dest_addr, List),
     Saddr = get_binary(source_addr, List),
+	RDFlag = get_binary(registered_delivery, List),
     {Encode, MaxLen} = exam_unicode(Txt, Param),
     Text = get_text_by_code(Encode, Txt),
     LenTxt = byte_size(Text),
@@ -101,11 +158,11 @@ submit_sm(List, Param) ->
             ok = Handler:sequence_number_handler([{sequence_number, SeqNum}|List]),
             Bin = ?SUBMIT_SM(1234, SeqNum, ServType, LenType, SaddrTon, SaddrNpi, 
                         Saddr, LenSaddr, DaddrTon, DaddrNpi, Daddr, LenDaddr,
-                        Encode, LenTxt, Text),
+                        RDFlag, Encode, LenTxt, Text),
             Length = byte_size(Bin),
             Bin1 = ?SUBMIT_SM(Length, SeqNum, ServType, LenType, SaddrTon, 
                     SaddrNpi, Saddr, LenSaddr, DaddrTon, DaddrNpi, Daddr, 
-                    LenDaddr, Encode, LenTxt, Text),
+                    LenDaddr, RDFlag, Encode, LenTxt, Text),
             [Bin1];
         true ->
             Tuple = cut_txt(Text, 1, MaxLen, []),
@@ -323,4 +380,15 @@ get_binary(Name, List) ->
             end
     end.    
             
-                    
+                   
+add_msg_state(Bin, Val) ->
+	<<Bin/binary, 1063:16/integer, 0, 1, Val:8/integer>>.
+
+add_rmsg_id(Bin, Val) ->
+	Len = byte_size(Val),
+	FLen = Len + 1,
+	<<Bin/binary, 30:16/integer, FLen:16/integer, Val:Len/binary, 0>>.
+
+correct_len(<<_:32, Rest/binary>> = All) ->
+	Len = byte_size(All),
+	<<Len:32/integer, Rest/binary>>.
